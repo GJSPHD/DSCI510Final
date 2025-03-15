@@ -28,17 +28,36 @@ if __name__ == "__main__":
     model = build_transformer_model(X_ts_train.shape, X_static_train.shape, y_train.shape[1])
     early_stopping = EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True)
     reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=3, min_lr=1e-6)
+
+    # Optional: Add ModelCheckpoint to save the best weights during training
+    checkpoint_filepath = "/projects/dsci410_510/Aurora/best_model_weights.h5"
+    model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        checkpoint_filepath,
+        monitor="val_loss",
+        save_best_only=True,
+        save_weights_only=True,
+        mode="min",
+        verbose=1
+    )
+
     history = model.fit(
         [X_ts_train, X_static_train], y_train,
         epochs=21, batch_size=32, validation_data=([X_ts_val, X_static_val], y_val),
-        callbacks=[early_stopping, reduce_lr], verbose=1
+        callbacks=[early_stopping, reduce_lr, model_checkpoint],  # Add checkpoint here
+        verbose=1
     )
+
+    # Save weights after training (overwrites checkpoint if not using save_best_only)
+    weights_filepath = "/projects/dsci410_510/Aurora/final_model_weights.h5"
+    model.save_weights(weights_filepath)
+    print(f"Model weights saved to {weights_filepath}")
 
     train_loss, train_mae = model.evaluate([X_ts_train, X_static_train], y_train, verbose=0)
     val_loss, val_mae = model.evaluate([X_ts_val, X_static_val], y_val, verbose=0)
     test_loss, test_mae = model.evaluate([X_ts_test, X_static_test], y_test, verbose=0)
     print(f"Train MAE: {train_mae:.4f}, Val MAE: {val_mae:.4f}, Test MAE: {test_mae:.4f}")
 
+    # Rest of your code (plotting, predictions, evaluation) remains unchanged
     plt.figure(figsize=(10, 5))
     plt.plot(history.history["loss"], label="Training Loss")
     plt.plot(history.history["val_loss"], label="Validation Loss")
