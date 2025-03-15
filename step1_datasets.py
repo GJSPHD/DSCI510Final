@@ -1,18 +1,22 @@
-
-
-
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow GPU warnings
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_squared_error, classification_report
+import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, Dropout, MultiHeadAttention, LayerNormalization, Concatenate, Multiply
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.optimizers import AdamW
 import matplotlib.pyplot as plt
+import warnings
 
-
+# Suppress warnings *after* imports
+warnings.filterwarnings('ignore', category=pd.errors.PerformanceWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 
 # --- DATASET PY ----
 def load_and_split_data():
@@ -45,7 +49,7 @@ def load_and_split_data():
     
     return train_long, train_wide, val_long, val_wide, test_long, test_wide
 
-# Preprocess Data
+# --- PREPROCESS DATA ---
 def preprocess_data(long_df, wide_df):
     ts_features = ['dist_traveled', 'radius', 'num_sig_places', 'av_flight_length', 'LIWC_posemo', 'LIWC_anger', 'LIWC_sad']
     static_features = [
@@ -81,10 +85,15 @@ def preprocess_data(long_df, wide_df):
         if col in wide_df.columns:
             wide_df[col] = le.fit_transform(wide_df[col].astype(str).fillna('Unknown'))
 
+    new_cols = {}
     for col in continuous_to_bin:
         if col in wide_df.columns:
-            wide_df[f'{col}_cat'] = pd.qcut(wide_df[col], q=4, labels=False, duplicates='drop').fillna(-1).astype(int)
+            new_cols[f'{col}_cat'] = pd.qcut(wide_df[col], q=4, labels=False, duplicates='drop').fillna(-1).astype(int)
             static_features.append(f'{col}_cat')
+    new_cols['PCL5_PRE_WK2_diff'] = wide_df['WK2_PCL5_RS'] - wide_df['PRE_PCL5_RS']
+    static_features.append('PCL5_PRE_WK2_diff')
+    if new_cols:
+        wide_df = pd.concat([wide_df, pd.DataFrame(new_cols, index=wide_df.index)], axis=1)
 
     long_pre_wk2 = long_df[long_df["day"] <= 14]
     agg_dict = {feat: ['mean', 'std'] for feat in ts_features}
@@ -93,8 +102,6 @@ def preprocess_data(long_df, wide_df):
     wide_df = wide_df.merge(ts_agg, on="PID", how="left")
 
     static_features.extend([col for col in ts_agg.columns if col != 'PID'])
-    static_features.append('PCL5_PRE_WK2_diff')
-    wide_df['PCL5_PRE_WK2_diff'] = wide_df['WK2_PCL5_RS'] - wide_df['PRE_PCL5_RS']
 
     static_df = wide_df[static_features].copy()
     for col in static_features:
@@ -130,4 +137,3 @@ def preprocess_data(long_df, wide_df):
                 mask[idx, day] = 1
 
     return X_ts, X_static, y, mask, ts_features, static_features, targets
-
