@@ -57,7 +57,7 @@ if __name__ == "__main__":
     test_loss, test_mae = model.evaluate([X_ts_test, X_static_test], y_test, verbose=0)
     print(f"Train MAE: {train_mae:.4f}, Val MAE: {val_mae:.4f}, Test MAE: {test_mae:.4f}")
 
-    # Rest of your code (plotting, predictions, evaluation) remains unchanged
+    # Rest of code (plotting, predictions, evaluation) remains unchanged
     plt.figure(figsize=(10, 5))
     plt.plot(history.history["loss"], label="Training Loss")
     plt.plot(history.history["val_loss"], label="Validation Loss")
@@ -66,11 +66,3 @@ if __name__ == "__main__":
     plt.title("Training and Validation Loss")
     plt.legend()
     plt.show()
-
-    y_pred_test = model.predict([X_ts_test, X_static_test], verbose=0)
-    test_results = pd.DataFrame({
-        "PID": test_wide["PID"],
-        **{f"{col}_true": y_test[:, i] for i, col in enumerate(targets)},
-        **{f"{col}_pred": y_pred_test[:, i] for i, col in enumerate(targets)}
-    })
-    test_results.to_csv("/projects/dsci410_510/Aurora/test_predictions.csv", index=False)
