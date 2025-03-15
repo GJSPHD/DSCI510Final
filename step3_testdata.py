@@ -1,3 +1,14 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.impute import KNNImputer
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Dropout, MultiHeadAttention, LayerNormalization, Concatenate, Multiply
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.optimizers import AdamW
+import matplotlib.pyplot as plt
+
 # --- DATA TEST DEMO PY ---
 if __name__ == "__main__":
     train_long, train_wide, val_long, val_wide, test_long, test_wide = load_and_split_data()
@@ -38,29 +49,3 @@ if __name__ == "__main__":
     })
     test_results.to_csv("/projects/dsci410_510/Aurora/test_predictions.csv", index=False)
 
-# --- Model EVALUATION py ---
-
-from sklearn.metrics import r2_score, mean_squared_error
-import numpy as np
-
-# After model.fit()
-test_loss, test_mae = model.evaluate([X_ts_test, X_static_test], y_test, verbose=0)
-y_pred_test = model.predict([X_ts_test, X_static_test], verbose=0)
-
-# Per-target metrics
-for i, target in enumerate(targets):
-    mae = np.mean(np.abs(y_test[:, i] - y_pred_test[:, i]))
-    rmse = np.sqrt(mean_squared_error(y_test[:, i], y_pred_test[:, i]))
-    r2 = r2_score(y_test[:, i], y_pred_test[:, i])
-    print(f"{target} - MAE: {mae:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}")
-
-# Classification metrics (threshold = 33)
-y_test_bin = (y_test > 33).astype(int)
-y_pred_bin = (y_pred_test > 33).astype(int)
-from sklearn.metrics import classification_report
-print(classification_report(y_test_bin, y_pred_bin, target_names=targets))
-
-
-## Clinical Thresholds
-## PCL-5 scores >33 often indicate PTSD. Assess classification accuracy:
-## Binarize y_test and y_pred_test at 33, compute precision/recall/F1:
