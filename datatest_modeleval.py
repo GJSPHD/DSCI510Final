@@ -1,0 +1,66 @@
+# --- DATA TEST DEMO PY ---
+if __name__ == "__main__":
+    train_long, train_wide, val_long, val_wide, test_long, test_wide = load_and_split_data()
+    X_ts_train, X_static_train, y_train, mask_train, ts_features, static_features, targets = preprocess_data(train_long, train_wide)
+    X_ts_val, X_static_val, y_val, mask_val, _, _, _ = preprocess_data(val_long, val_wide)
+    X_ts_test, X_static_test, y_test, mask_test, _, _, _ = preprocess_data(test_long, test_wide)
+
+    print(f"y_train mean: {y_train.mean(axis=0)}, SD: {y_train.std(axis=0)}")
+    print(f"y_val mean: {y_val.mean(axis=0)}, SD: {y_val.std(axis=0)}")
+    print(f"y_test mean: {y_test.mean(axis=0)}, SD: {y_test.std(axis=0)}")
+
+    model = build_transformer_model(X_ts_train.shape, X_static_train.shape, y_train.shape[1])
+    early_stopping = EarlyStopping(monitor="val_loss", patience=20, restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor="val_loss", factor=0.2, patience=10, min_lr=1e-6)
+    history = model.fit(
+        [X_ts_train, X_static_train], y_train,
+        epochs=16, batch_size=32, validation_data=([X_ts_val, X_static_val], y_val),
+        callbacks=[early_stopping, reduce_lr], verbose=1
+    )
+
+    train_loss, train_mae = model.evaluate([X_ts_train, X_static_train], y_train, verbose=0)
+    val_loss, val_mae = model.evaluate([X_ts_val, X_static_val], y_val, verbose=0)
+    test_loss, test_mae = model.evaluate([X_ts_test, X_static_test], y_test, verbose=0)
+    print(f"Train MAE: {train_mae:.4f}, Val MAE: {val_mae:.4f}, Test MAE: {test_mae:.4f}")
+
+    plt.plot(history.history["loss"], label="Training Loss")
+    plt.plot(history.history["val_loss"], label="Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
+
+    y_pred_test = model.predict([X_ts_test, X_static_test], verbose=0)
+    test_results = pd.DataFrame({
+        "PID": test_wide["PID"],
+        **{f"{col}_true": y_test[:, i] for i, col in enumerate(targets)},
+        **{f"{col}_pred": y_pred_test[:, i] for i, col in enumerate(targets)}
+    })
+    test_results.to_csv("/projects/dsci410_510/Aurora/test_predictions.csv", index=False)
+
+# --- Model EVALUATION py ---
+
+from sklearn.metrics import r2_score, mean_squared_error
+import numpy as np
+
+# After model.fit()
+test_loss, test_mae = model.evaluate([X_ts_test, X_static_test], y_test, verbose=0)
+y_pred_test = model.predict([X_ts_test, X_static_test], verbose=0)
+
+# Per-target metrics
+for i, target in enumerate(targets):
+    mae = np.mean(np.abs(y_test[:, i] - y_pred_test[:, i]))
+    rmse = np.sqrt(mean_squared_error(y_test[:, i], y_pred_test[:, i]))
+    r2 = r2_score(y_test[:, i], y_pred_test[:, i])
+    print(f"{target} - MAE: {mae:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}")
+
+# Classification metrics (threshold = 33)
+y_test_bin = (y_test > 33).astype(int)
+y_pred_bin = (y_pred_test > 33).astype(int)
+from sklearn.metrics import classification_report
+print(classification_report(y_test_bin, y_pred_bin, target_names=targets))
+
+
+## Clinical Thresholds
+## PCL-5 scores >33 often indicate PTSD. Assess classification accuracy:
+## Binarize y_test and y_pred_test at 33, compute precision/recall/F1:
