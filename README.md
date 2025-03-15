@@ -50,16 +50,16 @@ This project creates a transformer-based neural network to predict PCL-5 scores 
 - **M3_PCL5_RS**: MAE: 12.07, RMSE: 15.55, R²: 0.25
 - **M6_PCL5_RS**: MAE: 11.77, RMSE: 15.19, R²: 0.29
 - **Classification Metrics (PCL-5 > 33)**:
-
-              precision  recall  f1-score  support
-  WK8_PCL5_RS    0.81     0.69    0.75      32
-  M3_PCL5_RS     0.78     0.58    0.67      31
-  M6_PCL5_RS     0.73     0.55    0.63      29
-  micro avg      0.78     0.61    0.68      92
-  macro avg      0.77     0.61    0.68      92
-  weighted avg   0.78     0.61    0.68      92
-  samples avg    0.24     0.24    0.23      92
- 
+```
+            precision  recall  f1-score  support
+WK8_PCL5_RS    0.81     0.69    0.75      32
+M3_PCL5_RS     0.78     0.58    0.67      31
+M6_PCL5_RS     0.73     0.55    0.63      29
+micro avg      0.78     0.61    0.68      92
+macro avg      0.77     0.61    0.68      92
+weighted avg   0.78     0.61    0.68      92
+samples avg    0.24     0.24    0.23      92
+ ```
 - **Summary Statistics**:
   - WK8_PCL5_RS: Mean Actual: 32.25, Mean Predicted: 28.37, Std Actual: 17.99, Std Predicted: 13.62
   - M3_PCL5_RS: Mean Actual: 29.90, Mean Predicted: 24.34, Std Actual: 18.09, Std Predicted: 12.18
