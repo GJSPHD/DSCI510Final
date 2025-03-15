@@ -1,13 +1,18 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress TensorFlow GPU warnings
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_squared_error, classification_report
+import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, Dropout, MultiHeadAttention, LayerNormalization, Concatenate, Multiply
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.optimizers import AdamW
 import matplotlib.pyplot as plt
+import warnings
 
 
 # --- MODEL PY ---
@@ -58,4 +63,3 @@ def build_transformer_model(X_ts_shape, X_static_shape, num_targets):
     model = Model(inputs=[ts_input, static_input], outputs=output)
     model.compile(optimizer=AdamW(learning_rate=0.001, weight_decay=5e-5), loss="mse", metrics=["mae"])
     return model
-
