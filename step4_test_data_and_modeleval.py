@@ -11,7 +11,15 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.optimizers import AdamW
 import matplotlib.pyplot as plt
 import warnings
-   
+
+ y_pred_test = model.predict([X_ts_test, X_static_test], verbose=0)
+    test_results = pd.DataFrame({
+        "PID": test_wide["PID"],
+        **{f"{col}_true": y_test[:, i] for i, col in enumerate(targets)},
+        **{f"{col}_pred": y_pred_test[:, i] for i, col in enumerate(targets)}
+    })
+    test_results.to_csv("/projects/dsci410_510/Aurora/test_predictions.csv", index=False)
+
 # Model Evaluation
     print("\n--- Model Evaluation ---")
     for i, target in enumerate(targets):
