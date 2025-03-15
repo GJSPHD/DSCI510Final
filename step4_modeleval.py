@@ -1,61 +1,87 @@
-# models.py
-
-pip install tensorflow pandas numpy scikit-learn matplotlib
-
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.impute import KNNImputer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_squared_error, classification_report
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Dense, Dropout, MultiHeadAttention, LayerNormalization, Concatenate, Multiply
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.optimizers import AdamW
+import matplotlib.pyplot as plt
+import warnings
+   
+# Model Evaluation
+    print("\n--- Model Evaluation ---")
+    for i, target in enumerate(targets):
+        mae = np.mean(np.abs(y_test[:, i] - y_pred_test[:, i]))
+        rmse = np.sqrt(mean_squared_error(y_test[:, i], y_pred_test[:, i]))
+        r2 = r2_score(y_test[:, i], y_pred_test[:, i])
+        print(f"{target} - MAE: {mae:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}")
 
-def build_transformer_model(X_ts_shape, X_static_shape, num_targets):
-    """
-    Build a transformer model for PTSD prediction.
-    
-    Args:
-        X_ts_shape (tuple): Shape of time-series input (n_samples, 181, 7)
-        X_static_shape (tuple): Shape of static input (n_samples, n_static_features)
-        num_targets (int): Number of output targets (3 for WK8, M3, M6 PCL-5 scores)
-    
-    Returns:
-        Model: Compiled Keras model
-    """
-    ts_input = Input(shape=(X_ts_shape[1], X_ts_shape[2]), name="ts_input")  # e.g., (181, 7)
-    static_input = Input(shape=(X_static_shape[1],), name="static_input")     # e.g., (50+)
+    print("\n--- Classification Metrics (PCL-5 > 33) ---")
+    y_test_bin = (y_test > 33).astype(int)
+    y_pred_bin = (y_pred_test > 33).astype(int)
+    print(classification_report(y_test_bin, y_pred_bin, target_names=targets))
 
-    # Transformer encoder (4 blocks)
-    x = ts_input
-    for _ in range(4):
-        attn = MultiHeadAttention(num_heads=8, key_dim=64)(x, x)
-        attn = Dropout(0.1)(attn)
-        x = LayerNormalization(epsilon=1e-6)(x + attn)
-        ff = Dense(X_ts_shape[2], activation="relu")(x)  # Matches input feature dim (7)
-        ff = Dropout(0.1)(ff)
-        x = LayerNormalization(epsilon=1e-6)(x + ff)
+    # Print ALL PID, predicted, and actual PCL-5 scores from test_results
+    print("\n--- All Test Predictions ---")
+    print(f"Total test set size: {len(test_results)} rows")
+    for i in range(len(test_results)):
+        pid = test_results["PID"].iloc[i]
+        print(f"\nPID: {pid}")
+        for target in targets:
+            actual = test_results[f"{target}_true"].iloc[i]
+            pred = test_results[f"{target}_pred"].iloc[i]
+            print(f"{target} - Actual: {actual:.2f}, Predicted: {pred:.2f}")
 
-    # Use last timestep
-    ts_output = x[:, -1, :]
-    ts_flat = Dense(32, activation="relu")(ts_output)
+import pandas as pd
+import numpy as np
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import matplotlib.pyplot as plt
 
-    # Static feature processing
-    static_dense = Dense(64, activation="relu")(static_input)
-    static_weights = Dense(64, activation="sigmoid")(static_dense)
-    static_weighted = Multiply()([static_dense, static_weights])
-    static_dropout = Dropout(0.1)(static_weighted)
+# Read the CSV file directly
+csv_path = "/projects/dsci410_510/Aurora/test_predictions.csv"
+df = pd.read_csv(csv_path)
 
-    # Combine features
-    combined = Concatenate()([ts_flat, static_dropout])
-    combined_dense = Dense(64, activation="relu")(combined)
-    combined_dropout = Dropout(0.1)(combined_dense)
-    final_dense = Dense(16, activation="relu")(combined_dropout)
-    output = Dense(num_targets, name="output")(final_dense)
+# Define targets and rename columns for consistency
+targets = ["WK8_PCL5_RS", "M3_PCL5_RS", "M6_PCL5_RS"]
+actual_cols = [f"{target}_true" for target in targets]
+pred_cols = [f"{target}_pred" for target in targets]
 
-    model = Model(inputs=[ts_input, static_input], outputs=output)
-    model.compile(optimizer=AdamW(learning_rate=0.001, weight_decay=5e-5), 
-                  loss="mse", 
-                  metrics=["mae"])
-    return model
+# Summary Statistics
+summary_stats = {}
+for target in targets:
+    actual = df[f"{target}_true"]
+    pred = df[f"{target}_pred"]
+    summary_stats[target] = {
+        "Mean Actual": actual.mean(),
+        "Mean Predicted": pred.mean(),
+        "Std Actual": actual.std(),
+        "Std Predicted": pred.std(),
+        "MAE": mean_absolute_error(actual, pred),
+        "RMSE": np.sqrt(mean_squared_error(actual, pred)),
+        "R²": r2_score(actual, pred)
+    }
 
-if __name__ == "__main__":
-    # Test with expected shapes
-    model = build_transformer_model((None, 181, 7), (None, 50), 3)
-    model.summary()
+# Print Summary Statistics
+print("--- Summary Statistics ---")
+for target, stats in summary_stats.items():
+    print(f"\n{target}:")
+    for metric, value in stats.items():
+        print(f"  {metric}: {value:.2f}")
+
+# Generate Scatter Plot
+plt.figure(figsize=(15, 5))
+for i, target in enumerate(targets, 1):
+    plt.subplot(1, 3, i)
+    plt.scatter(df[f"{target}_true"], df[f"{target}_pred"], alpha=0.5, label="Predictions")
+    plt.plot([0, 80], [0, 80], 'r--', label="Perfect Prediction")
+    plt.xlabel(f"Actual {target}")
+    plt.ylabel(f"Predicted {target}")
+    plt.title(f"{target} (MAE: {summary_stats[target]['MAE']:.2f})")
+    plt.legend()
+    plt.grid(True)
+plt.tight_layout()
+plt.show()
